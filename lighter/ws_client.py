@@ -612,6 +612,11 @@ class _WsClientBase:
 
             # Generate auth token automatically
             self.auth_token, _ = self.signer_client.create_auth_token_with_expiry()
+        else:
+            if self.logger:
+                self.logger.warning("SignerClient not initialized. Provide private_key, account_index, and api_key_index.")
+            else:
+                print("SignerClient not initialized. Provide private_key, account_index, and api_key_index.")
 
 
 class WsClient(_WsClientBase):
@@ -1122,11 +1127,18 @@ class WsClientAsync(_WsClientBase):
             response: WebSocket response message
         """
         if not self.ws:
-            raise Exception("WebSocket is not connected. Call connect() first.")
+            if self.logger:
+                self.logger.error("WebSocket is not connected. Call connect() first.")
+            else:
+                print("WebSocket is not connected. Call connect() first.")
+            await self.connect()
 
         if not self.signer_client:
-            raise Exception(
-                "SignerClient not initialized. Provide private_key, account_index, and api_key_index.")
+            if self.logger:
+                self.logger.error("Initializing SignerClient...")
+            else:
+                print("Initializing SignerClient...")
+            self.create_auth_token()
 
         if self.nonce is None:
             await self.get_nonce()
@@ -1134,13 +1146,13 @@ class WsClientAsync(_WsClientBase):
         # Sign the order
         # Set defaults if not provided
         if time_in_force is None:
-            time_in_force = self.signer_client.ORDER_TIME_IN_FORCE_GOOD_TILL_TIME
+            time_in_force = SignerClient.ORDER_TIME_IN_FORCE_GOOD_TILL_TIME
 
         if order_expiry is None:
-            if time_in_force == self.signer_client.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL:
-                order_expiry = self.signer_client.DEFAULT_IOC_EXPIRY
+            if time_in_force == SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL:
+                order_expiry = SignerClient.DEFAULT_IOC_EXPIRY
             else:
-                order_expiry = self.signer_client.DEFAULT_28_DAY_ORDER_EXPIRY
+                order_expiry = SignerClient.DEFAULT_28_DAY_ORDER_EXPIRY
 
         tx_info, error = self.signer_client.sign_create_order(
             market_index=market_index,
@@ -1209,7 +1221,7 @@ class WsClientAsync(_WsClientBase):
             base_amount=base_amount,
             price=price,
             is_ask=is_ask,
-            order_type=self.signer_client.ORDER_TYPE_LIMIT,
+            order_type=SignerClient.ORDER_TYPE_LIMIT,
             time_in_force=time_in_force,
             order_expiry=order_expiry,
             reduce_only=reduce_only,
@@ -1248,9 +1260,9 @@ class WsClientAsync(_WsClientBase):
             base_amount=base_amount,
             price=avg_execution_price,
             is_ask=is_ask,
-            order_type=self.signer_client.ORDER_TYPE_MARKET,
-            time_in_force=self.signer_client.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL,
-            order_expiry=self.signer_client.DEFAULT_IOC_EXPIRY,
+            order_type=SignerClient.ORDER_TYPE_MARKET,
+            time_in_force=SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL,
+            order_expiry=SignerClient.DEFAULT_IOC_EXPIRY,
             reduce_only=reduce_only,
             trigger_price=0,
             request_id=request_id,
@@ -1303,11 +1315,18 @@ class WsClientAsync(_WsClientBase):
             await ws_client.create_order_batch(orders)
         """
         if not self.ws:
-            raise Exception("WebSocket is not connected. Call connect() first.")
+            if self.logger:
+                self.logger.error("WebSocket is not connected. Call connect() first.")
+            else:
+                print("WebSocket is not connected. Call connect() first.")
+            await self.connect()
 
         if not self.signer_client:
-            raise Exception(
-                "SignerClient not initialized. Provide private_key, account_index, and api_key_index.")
+            if self.logger:
+                self.logger.error("SignerClient not initialized. Provide private_key, account_index, and api_key_index.")
+            else:
+                print("SignerClient not initialized. Provide private_key, account_index, and api_key_index.")
+            self.create_auth_token()
 
         if not orders:
             raise Exception("No orders provided.")
@@ -1321,14 +1340,14 @@ class WsClientAsync(_WsClientBase):
             # Set defaults if not provided
             time_in_force = order.get("time_in_force")
             if time_in_force is None:
-                time_in_force = self.signer_client.ORDER_TIME_IN_FORCE_GOOD_TILL_TIME
+                time_in_force = SignerClient.ORDER_TIME_IN_FORCE_GOOD_TILL_TIME
 
             order_expiry = order.get("order_expiry")
             if order_expiry is None:
-                if time_in_force == self.signer_client.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL:
-                    order_expiry = self.signer_client.DEFAULT_IOC_EXPIRY
+                if time_in_force == SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL:
+                    order_expiry = SignerClient.DEFAULT_IOC_EXPIRY
                 else:
-                    order_expiry = self.signer_client.DEFAULT_28_DAY_ORDER_EXPIRY
+                    order_expiry = SignerClient.DEFAULT_28_DAY_ORDER_EXPIRY
 
             # Sign the order
             tx_info, error = self.signer_client.sign_create_order(
@@ -1393,7 +1412,7 @@ class WsClientAsync(_WsClientBase):
         orders_with_type = [
             {
                 **order,
-                "order_type": self.signer_client.ORDER_TYPE_LIMIT,
+                "order_type": SignerClient.ORDER_TYPE_LIMIT,
             }
             for order in orders
         ]
@@ -1431,9 +1450,9 @@ class WsClientAsync(_WsClientBase):
                 "price": order["avg_execution_price"],
                 "is_ask": order["is_ask"],
                 "reduce_only": order.get("reduce_only", False),
-                "order_type": self.signer_client.ORDER_TYPE_MARKET,
-                "time_in_force": self.signer_client.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL,
-                "order_expiry": self.signer_client.DEFAULT_IOC_EXPIRY,
+                "order_type": SignerClient.ORDER_TYPE_MARKET,
+                "time_in_force": SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL,
+                "order_expiry": SignerClient.DEFAULT_IOC_EXPIRY,
                 "trigger_price": 0,
             }
             for order in orders
